@@ -1,0 +1,424 @@
+{
+  "name": "My workflow 3",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Youtube Transcript",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Video_ID",
+              "placeholder": "Video ID eg: lK3veuZAg0c",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        -80,
+        32
+      ],
+      "id": "82455913-993b-4f36-941d-7a473c21ea76",
+      "name": "On form submission",
+      "webhookId": "8345bd01-578e-452f-8060-82539f2fcfa1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.youtube-transcript.io/api/transcripts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Basic 68b0b94f068b243e05cbaa0b"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"ids\": [\n    \"{{ $json.Video_ID }}\"\n  ]\n} ",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        192,
+        -32
+      ],
+      "id": "db9f7c31-847c-476d-a548-5d83baf02b79",
+      "name": "HTTP Request",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "63974e12-ed97-4fe0-a468-d087bc7c21b1",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "8c8df715-37cf-48e4-bdc5-39f66ca29140",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 201,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        -32
+      ],
+      "id": "5c4f7482-316b-46a6-aa29-cea235e142c4",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "errorMessage": "Invalid Transcript"
+      },
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        592,
+        -176
+      ],
+      "id": "6dd6a825-0e45-4a09-8165-7af6919f7b3d",
+      "name": "Stop and Error"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "memoryKey": {
+          "__rl": true,
+          "mode": "list",
+          "value": "vector_store_key"
+        },
+        "clearStore": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.3,
+      "position": [
+        1104,
+        -16
+      ],
+      "id": "a0199693-07f0-465f-b054-3b0db46cfae6",
+      "name": "Simple Vector Store"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1056,
+        96
+      ],
+      "id": "6975149a-d86f-4643-9c5c-f3ad8836a254",
+      "name": "Embeddings Google Gemini",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "Hq7GW9D0PmqinWlC",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $('Code').item.json.text }}",
+        "textSplittingMode": "custom",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        1168,
+        256
+      ],
+      "id": "47103a0c-3610-419f-af57-165407d327b1",
+      "name": "Default Data Loader"
+    },
+    {
+      "parameters": {
+        "chunkSize": 200,
+        "chunkOverlap": 25,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        80
+      ],
+      "id": "5b14f7e3-6c7c-41ce-b30c-8e7cc652ca36",
+      "name": "Recursive Character Text Splitter"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        1648,
+        192
+      ],
+      "id": "ec1ae8f4-3769-4226-adb2-69cc555673ce",
+      "name": "When chat message received",
+      "webhookId": "8a0bfad1-a14e-4162-b96a-783182ab09b2"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are a helpful assistant specialized in answering questions based on YouTube video transcripts.  \nYou have access to a retrieval tool that fetches relevant transcript segments.  \n- Always use the retrieved transcript context to answer the user’s query.  \n- If the answer is not supported by the retrieved transcripts, respond with: \"I don’t know.\"  \n- Do not invent information that is not present in the transcripts.  \n- Be concise, accurate, and clear in your responses."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1824,
+        80
+      ],
+      "id": "cec2deaa-1c5a-4cdc-a1b0-a3766a8a2031",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1808,
+        336
+      ],
+      "id": "d3bd6b83-3020-4861-9318-46617c6d7f1f",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "Hq7GW9D0PmqinWlC",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "For Getting Relavant Document",
+        "memoryKey": {
+          "__rl": true,
+          "mode": "list",
+          "value": "vector_store_key"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.3,
+      "position": [
+        2048,
+        288
+      ],
+      "id": "b2c0a42b-543d-4c03-b496-ae838cae1790",
+      "name": "Simple Vector Store1"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        528
+      ],
+      "id": "0d7814fc-cb0c-43c9-b50c-f005840f1f1d",
+      "name": "Embeddings Google Gemini1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "Hq7GW9D0PmqinWlC",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let text = \"\";\n\n// Get all tracks\nconst tracks = $input.first().json.body[0].tracks;\n\n// Find the English track\nconst englishTrack = tracks.find(t => \n  t.language.toLowerCase().includes(\"english\")\n);\n\nif (englishTrack) {\n  for (const entry of englishTrack.transcript) {\n    text += entry.text + \" \";\n  }\n}\n\n// Return merged text\nreturn [\n  {\n    json: {\n      text: text.trim()\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        -32
+      ],
+      "id": "f4164a90-d74d-4de3-b6d3-ce5b7c6033b0",
+      "name": "Code"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop and Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Simple Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Simple Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Vector Store1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Simple Vector Store1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Simple Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f94adb1d-dc84-44c5-b844-e005b188bb6c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4a20066bd50edcb459d8d4adb5c91dabb731a8763a5f09cfffd389a732a567fc"
+  },
+  "id": "pllVnL8r7GyAjWIa",
+  "tags": []
+}
